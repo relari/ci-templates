@@ -9,21 +9,16 @@ on:
         required: false
         type: string
         default: '17'
-      maven-goal:
-        description: 'Goal de Maven (ej: package, verify)'
-        required: false
-        type: string
-        default: 'package'
-      run-tests:
-        description: 'Ejecutar pruebas unitarias'
-        required: false
-        type: boolean
-        default: true
       app-port:
         description: 'Puerto de la aplicación Spring Boot'
         required: false
         type: string
         default: '8081'
+      base-url:
+        description: 'URL base para las pruebas de integración'
+        required: false
+        type: string
+        default: 'http://localhost:8081'
       postman-collection:
         description: 'Ruta a la colección Postman'
         required: false
@@ -66,12 +61,7 @@ jobs:
           echo "Versión: $VERSION | Repo: $REPO_NAME | JAR: $JAR_NAME"
 
       - name: Build con Maven
-        run: |
-          if ${{ inputs.run-tests }}; then
-            mvn -B clean ${{ inputs.maven-goal }}
-          else
-            mvn -B clean ${{ inputs.maven-goal }} -DskipTests
-          fi
+        run: mvn -B clean package -DskipTests
 
       - name: Subir JAR como artefacto
         uses: actions/upload-artifact@v4
@@ -84,6 +74,7 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     env:
+      REPO_NAME: ${{ needs.build-and-test.outputs.REPO_NAME }}
       VERSION: ${{ needs.build-and-test.outputs.VERSION }}
       JAR_NAME: ${{ needs.build-and-test.outputs.JAR_NAME }}
       APP_PORT: ${{ inputs.app-port }}
@@ -100,7 +91,7 @@ jobs:
           tags: ${{ env.REPO_NAME }}:${{ env.VERSION }}
 
       - name: Run container
-        run: docker run -d --name test-app -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} ${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+        run: docker run -d --name test-app -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} ${{ env.REPO_NAME }}:${{ env.VERSION }}
 
       - name: Wait for health
         uses: nick-fields/retry@v3
