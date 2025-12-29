@@ -87,6 +87,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.JAR_NAME }}
+
+      - name: Mover JAR a target/
+        run: |
+          mkdir -p target
+          mv ${{ env.JAR_NAME }} target/
+
       - name: Build Docker image (local)
         uses: docker/build-push-action@v5
         with:
