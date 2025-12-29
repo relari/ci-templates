@@ -93,7 +93,7 @@ jobs:
           context: .
           load: true
           push: false
-          tags: ${{ env.REPO_NAME }}:${{ env.VERSION }}
+          tags: '${{ env.REPO_NAME }}:${{ env.VERSION }}'
 
       - name: Run container
         run: docker run -d --name test-app -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} ${{ env.REPO_NAME }}:${{ env.VERSION }}
