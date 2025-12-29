@@ -95,7 +95,6 @@ jobs:
           push: false
           tags: |
             ${{ env.REPO_NAME }}:${{ env.APP_VERSION }}
-            ${{ env.REPO_NAME }}:latest   # Bonus: tag latest
 
       - name: Run container
         run: docker run -d --name test-app -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} ${{ env.REPO_NAME }}:${{ env.APP_VERSION }}
