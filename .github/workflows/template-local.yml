@@ -33,10 +33,10 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     outputs:
-      REPO_NAME: ${{ steps.version.outputs.REPO_NAME }}
-      VERSION: ${{ steps.version.outputs.VERSION }}
-      JAR_NAME: ${{ steps.version.outputs.JAR_NAME }}
-      FULL_JAR_PATH: ${{ steps.vars.outputs.FULL_JAR_PATH }}  # Bonus: ruta completa
+      REPO_NAME: ${{ steps.vars.outputs.REPO_NAME }}
+      APP_VERSION: ${{ steps.vars.outputs.APP_VERSION }}
+      JAR_NAME: ${{ steps.vars.outputs.JAR_NAME }}
+      JAR_PATH: ${{ steps.vars.outputs.JAR_PATH }}  # Bonus: ruta completa
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,18 +51,18 @@ jobs:
       - name: Variables
         id: vars
         run: |
-          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           REPO_NAME="${{ github.event.repository.name }}"
-          JAR_NAME="${REPO_NAME}-${VERSION}.jar"
-          FULL_PATH="target/${JAR_NAME}"
+          APP_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          JAR_NAME="${REPO_NAME}-${APP_VERSION}.jar"
+          JAR_PATH="target/${JAR_NAME}"
 
           # Escribir outputs del step (para usar en outputs del job)
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_OUTPUT
           echo "JAR_NAME=$JAR_NAME" >> $GITHUB_OUTPUT
-          echo "FULL_JAR_PATH=$FULL_PATH" >> $GITHUB_OUTPUT
+          echo "JAR_PATH=$JAR_PATH" >> $GITHUB_OUTPUT
           
-          echo "Versión: $VERSION | Repo: $REPO_NAME | JAR: $JAR_NAME | JAR_PATH: $FULL_PATH"
+          echo "Versión: $APP_VERSION | Repo: $REPO_NAME | JAR: $JAR_NAME | JAR_PATH: $JAR_PATH"
 
       - name: Build con Maven
         run: mvn -B clean package -DskipTests
@@ -70,17 +70,17 @@ jobs:
       - name: Subir JAR como artefacto
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.vars.outputs.JAR_NAME }}        # ← Correcto: del step
-          path: ${{ steps.vars.outputs.FULL_JAR_PATH }}   # ← Ruta completa
+          name: ${{ steps.vars.outputs.JAR_NAME }}
+          path: ${{ steps.vars.outputs.JAR_PATH }}
           retention-days: 1
-          if-no-files-found: error                       # Buena práctica
+          if-no-files-found: error
 
   integration-test:
     needs: build-and-test
     runs-on: ubuntu-latest
     env:
       REPO_NAME: ${{ needs.build-and-test.outputs.REPO_NAME }}
-      VERSION: ${{ needs.build-and-test.outputs.VERSION }}
+      APP_VERSION: ${{ needs.build-and-test.outputs.APP_VERSION }}
       JAR_NAME: ${{ needs.build-and-test.outputs.JAR_NAME }}
       APP_PORT: ${{ inputs.app-port }}
     steps:
@@ -94,11 +94,11 @@ jobs:
           load: true
           push: false
           tags: |
-            ${{ env.REPO_NAME }}:${{ env.VERSION }}
+            ${{ env.REPO_NAME }}:${{ env.APP_VERSION }}
             ${{ env.REPO_NAME }}:latest   # Bonus: tag latest
 
       - name: Run container
-        run: docker run -d --name test-app -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} ${{ env.REPO_NAME }}:${{ env.VERSION }}
+        run: docker run -d --name test-app -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} ${{ env.REPO_NAME }}:${{ env.APP_VERSION }}
 
       - name: Wait for health
         uses: nick-fields/retry@v3
