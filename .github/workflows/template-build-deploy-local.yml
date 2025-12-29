@@ -1,6 +1,5 @@
-name: Workflow Local Java CI
+name: Template Build Deploy Local
 
-# Esto hace que sea reutilizable
 on:
   workflow_call:
     inputs:
@@ -24,10 +23,6 @@ on:
         required: false
         type: string
         default: './_postman/API_EMPLOYEE_DEVOPS.postman_collection.json'
-    secrets:
-      GHCR_TOKEN:
-        description: 'Token para push a GHCR'
-        required: false
 
 jobs:
   build-and-test:
