@@ -62,7 +62,7 @@ jobs:
           echo "JAR_NAME=$JAR_NAME" >> $GITHUB_OUTPUT
           echo "FULL_JAR_PATH=$FULL_PATH" >> $GITHUB_OUTPUT
           
-          echo "Versión: $VERSION | Repo: $REPO_NAME | JAR: $JAR_NAME" | JAR_PATH: $FULL_JAR_PATH"
+          echo "Versión: $VERSION | Repo: $REPO_NAME | JAR: $JAR_NAME" | JAR_PATH: $FULL_PATH"
 
       - name: Build con Maven
         run: mvn -B clean package -DskipTests
