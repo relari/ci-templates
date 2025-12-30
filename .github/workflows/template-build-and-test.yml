@@ -56,7 +56,7 @@ jobs:
           echo "Versión: $APP_VERSION | Repo: $COMPONENT"
 
       - name: Compilar y pruebas unitarias (con cobertura)
-        run: mvn -B clean verify -Pcoverage
+        run: mvn -B clean verify
 
       - name: Mostrar cobertura JaCoCo (desde XML)
         run: |
