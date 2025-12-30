@@ -3,32 +3,43 @@ name: Template Build Deploy Local
 on:
   workflow_call:
     inputs:
+      component-name:
+        description: 'Nombre del componente'
+        required: true
+        type: string
+        default: 'api-employee-devops'
+      project-type:
+        description: 'Tipo de proyecto'
+        required: true
+        type: string
+        default: 'maven'
       java-version:
         description: 'Versión de Java'
-        required: false
+        required: true
         type: string
         default: '17'
       app-port:
         description: 'Puerto de la aplicación Spring Boot'
-        required: false
+        required: true
         type: string
         default: '8081'
       base-url:
         description: 'URL base para las pruebas de integración'
-        required: false
+        required: true
         type: string
         default: 'http://localhost:8081'
       postman-collection:
         description: 'Ruta a la colección Postman'
-        required: false
+        required: true
         type: string
         default: './_postman/API_EMPLOYEE_DEVOPS.postman_collection.json'
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      COMPONENT: ${{ inputs.component-name }}
     outputs:
-      REPO_NAME: ${{ steps.vars.outputs.REPO_NAME }}
       APP_VERSION: ${{ steps.vars.outputs.APP_VERSION }}
       JAR_NAME: ${{ steps.vars.outputs.JAR_NAME }}
       JAR_PATH: ${{ steps.vars.outputs.JAR_PATH }}  # Bonus: ruta completa
@@ -41,23 +52,21 @@ jobs:
         with:
           java-version: ${{ inputs.java-version }}
           distribution: 'temurin'
-          cache: maven
+          cache: ${{ inputs.project-type }}
 
       - name: Variables
         id: vars
         run: |
-          REPO_NAME="${{ github.event.repository.name }}"
           APP_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          JAR_NAME="${REPO_NAME}-${APP_VERSION}.jar"
+          JAR_NAME="${{ env.COMPONENT }}-${APP_VERSION}.jar"
           JAR_PATH="target/${JAR_NAME}"
 
           # Escribir outputs del step (para usar en outputs del job)
-          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_OUTPUT
           echo "APP_VERSION=$APP_VERSION" >> $GITHUB_OUTPUT
           echo "JAR_NAME=$JAR_NAME" >> $GITHUB_OUTPUT
           echo "JAR_PATH=$JAR_PATH" >> $GITHUB_OUTPUT
           
-          echo "Versión: $APP_VERSION | Repo: $REPO_NAME | JAR: $JAR_NAME | JAR_PATH: $JAR_PATH"
+          echo "Versión: $APP_VERSION | Repo: ${{ env.COMPONENT }} | JAR: $JAR_NAME | JAR_PATH: $JAR_PATH"
 
       - name: Build con Maven
         run: mvn -B clean package -DskipTests
@@ -74,7 +83,7 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     env:
-      REPO_NAME: ${{ needs.build-and-test.outputs.REPO_NAME }}
+      COMPONENT: ${{ inputs.component-name }}
       APP_VERSION: ${{ needs.build-and-test.outputs.APP_VERSION }}
       JAR_NAME: ${{ needs.build-and-test.outputs.JAR_NAME }}
       APP_PORT: ${{ inputs.app-port }}
@@ -99,10 +108,10 @@ jobs:
           load: true
           push: false
           tags: |
-            ${{ env.REPO_NAME }}:${{ env.APP_VERSION }}
+            ${{ env.COMPONENT }}:${{ env.APP_VERSION }}
 
       - name: Run container
-        run: docker run -d --name test-app -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} ${{ env.REPO_NAME }}:${{ env.APP_VERSION }}
+        run: docker run -d --name test-app -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} ${{ env.COMPONENT }}:${{ env.APP_VERSION }}
 
       - name: Wait for health
         uses: nick-fields/retry@v3
