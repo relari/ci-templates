@@ -126,11 +126,10 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
-#          load: ${{ github.event_name == 'pull_request' }}  # Solo load en PR para pruebas locales
-          load: true   # Necesario para pruebas locales
+          load: ${{ github.event_name == 'pull_request' }}   # Solo load en PR (para pruebas locales)
           tags: |
-            ${{ env.COMPONENT }}:${{ env.APP_VERSION }}
-            ${{ env.COMPONENT }}:latest
+            ghcr.io/${{ env.COMPONENT }}:${{ env.APP_VERSION }}
+            ghcr.io/${{ env.COMPONENT }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
