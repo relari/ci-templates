@@ -96,6 +96,7 @@ jobs:
       JAR_NAME: ${{ needs.build-and-test.outputs.JAR_NAME }}
       APP_PORT: ${{ inputs.app-port }}
       BASE_URL: ${{ inputs.base-url }}
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/${{ inputs.component-name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -128,8 +129,9 @@ jobs:
           push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
           load: ${{ github.event_name == 'pull_request' }}   # Solo load en PR (para pruebas locales)
           tags: |
-            ghcr.io/${{ env.COMPONENT }}:${{ env.APP_VERSION }}
-            ghcr.io/${{ env.COMPONENT }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}          # Tag con commit SHA (recomendado)
+            ${{ env.IMAGE_NAME }}:${{ env.APP_VERSION }}  # Tag con versión del pom
+            ${{ env.IMAGE_NAME }}:latest                     # Tag latest (solo en main)
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
