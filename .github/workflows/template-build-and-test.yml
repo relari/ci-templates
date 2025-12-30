@@ -58,13 +58,14 @@ jobs:
       - name: Compilar y pruebas unitarias (con cobertura)
         run: mvn -B clean verify -Pcoverage
 
-      - name: Mostrar cobertura JaCoCo
+      - name: Mostrar cobertura JaCoCo (desde XML)
         run: |
           echo "=== Resumen Cobertura JaCoCo ==="
-          if [ -f target/site/jacoco/jacoco.csv ]; then
-            awk -F, 'NR>1 {c+=$4; m+=$5} END {if(c+m>0) printf "Cobertura: %.2f%%\n", (c/(c+m))*100}' target/site/jacoco/jacoco.csv
+          if [ -f target/site/jacoco/jacoco.xml ]; then
+            grep 'line rate' target/site/jacoco/jacoco.xml | \
+            awk -F'"' '{printf "Cobertura de líneas: %.2f%%\n", $4 * 100}'
           else
-            echo "No hay reporte JaCoCo"
+            echo "No se encontró jacoco.xml"
           fi
 
   analyze-sonar:
