@@ -129,9 +129,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
           load: ${{ github.event_name == 'pull_request' }}   # Solo load en PR (para pruebas locales)
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}          # Tag con commit SHA (recomendado)
-            ${{ env.IMAGE_NAME }}:${{ env.APP_VERSION }}  # Tag con versión del pom
-            ${{ env.IMAGE_NAME }}:latest                     # Tag latest (solo en main)
+            ${{ env.IMAGE_NAME }}:${{ env.APP_VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
