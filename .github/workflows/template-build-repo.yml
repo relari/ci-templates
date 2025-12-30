@@ -1,0 +1,179 @@
+name: Build Repository Template
+
+on:
+  workflow_call:
+    inputs:
+      component-name:
+        description: 'Nombre del componente'
+        required: true
+        type: string
+        default: 'api-employee-devops'
+      project-type:
+        description: 'Tipo de proyecto'
+        required: true
+        type: string
+        default: 'maven'
+      java-version:
+        description: 'Versión de Java'
+        required: true
+        type: string
+        default: '17'
+      app-port:
+        description: 'Puerto de la aplicación Spring Boot'
+        required: true
+        type: string
+        default: '8081'
+      base-url:
+        description: 'URL base para las pruebas de integración'
+        required: true
+        type: string
+        default: 'http://localhost:8081'
+      postman-collection:
+        description: 'Ruta a la colección Postman'
+        required: true
+        type: string
+        default: './_postman/API_EMPLOYEE_DEVOPS.postman_collection.json'
+    secrets:
+      SONAR_TOKEN:
+        required: true
+      SONAR_USERNAME:
+        required: true
+      SONAR_HOST_URL:
+        required: false
+      GITHUB_TOKEN:
+        required: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      COMPONENT: ${{ inputs.component-name }}
+    outputs:
+      APP_VERSION: ${{ steps.vars.outputs.APP_VERSION }}
+      JAR_NAME: ${{ steps.vars.outputs.JAR_NAME }}
+      JAR_PATH: ${{ steps.vars.outputs.JAR_PATH }}  # Bonus: ruta completa
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: 'temurin'
+          cache: ${{ inputs.project-type }}
+
+      - name: Variables
+        id: vars
+        run: |
+          APP_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          JAR_NAME="${{ env.COMPONENT }}-${APP_VERSION}.jar"
+          JAR_PATH="target/${JAR_NAME}"
+
+          # Escribir outputs del step (para usar en outputs del job)
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_OUTPUT
+          echo "JAR_NAME=$JAR_NAME" >> $GITHUB_OUTPUT
+          echo "JAR_PATH=$JAR_PATH" >> $GITHUB_OUTPUT
+          
+          echo "Versión: $APP_VERSION | Repo: ${{ env.COMPONENT }} | JAR: $JAR_NAME | JAR_PATH: $JAR_PATH"
+
+      - name: Compilar y pruebas unitarias (con cobertura)
+        run: mvn -B clean verify
+
+      - name: Subir JAR como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.vars.outputs.JAR_NAME }}
+          path: target/${{ steps.vars.outputs.JAR_NAME }}
+          retention-days: 1
+
+  repo:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    env:
+      COMPONENT: ${{ inputs.component-name }}
+      APP_VERSION: ${{ needs.build-and-test.outputs.APP_VERSION }}
+      JAR_NAME: ${{ needs.build-and-test.outputs.JAR_NAME }}
+      APP_PORT: ${{ inputs.app-port }}
+      BASE_URL: ${{ inputs.base-url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.JAR_NAME }}
+
+      - name: Mover JAR a target/
+        run: |
+          mkdir -p target
+          mv ${{ env.JAR_NAME }} target/
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login en GHCR
+#        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io   # docker.io o ghcr.io/org
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construir y pushear imagen
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+#          load: ${{ github.event_name == 'pull_request' }}  # Solo load en PR para pruebas locales
+          load: true   # Necesario para pruebas locales
+          tags: |
+            ${{ env.COMPONENT }}:${{ env.APP_VERSION }}
+            ${{ env.COMPONENT }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Pull imagen local (en PR) o usar la ya construida
+        if: github.event_name == 'pull_request'
+        run: docker pull ${{ env.COMPONENT }}:${{ env.APP_VERSION }} || true
+
+      - name: Visualizar imágenes Docker locales
+        run: docker images
+
+      - name: Iniciar contenedor
+        run: |
+          docker run -d \
+            --name app-test \
+            -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
+            ${{ env.COMPONENT }}:${{ env.APP_VERSION }}
+
+      - name: Esperar health check
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 2
+          max_attempts: 6
+          command: curl -f ${{ env.BASE_URL }}/api/v1/employees/actuator/health
+
+      - name: Instalar Newman
+        run: npm install -g newman
+
+      - name: Ejecutar pruebas Postman
+        run: |
+          newman run ./_postman/API_EMPLOYEE_DEVOPS.postman_collection.json \
+            --env-var "baseUrl=${{ env.BASE_URL }}" \
+            --reporters cli,junit \
+            --reporter-junit-export newman-report.xml
+
+      - name: Subir reporte Newman
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-report
+          path: newman-report.xml
+
+      - name: Limpieza
+        if: always()
+        run: |
+          docker logs app-test
+          docker rm -f app-test
