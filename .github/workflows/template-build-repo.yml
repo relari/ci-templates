@@ -127,7 +127,7 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
-          load: ${{ github.event_name == 'pull_request' }}   # Solo load en PR (para pruebas locales)
+#          load: ${{ github.event_name == 'pull_request' }}   # Solo load en PR (para pruebas locales)
           tags: |
             ${{ env.IMAGE_NAME }}:${{ env.APP_VERSION }}
           cache-from: type=gha
@@ -135,7 +135,7 @@ jobs:
 
       - name: Pull imagen local (en PR) o usar la ya construida
         if: github.event_name == 'pull_request'
-        run: docker pull ${{ env.COMPONENT }}:${{ env.APP_VERSION }} || true
+        run: docker pull ${{ env.IMAGE_NAME }}:${{ env.APP_VERSION }} || true
 
       - name: Visualizar imágenes Docker locales
         run: docker images
@@ -145,7 +145,7 @@ jobs:
           docker run -d \
             --name app-test \
             -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
-            ${{ env.COMPONENT }}:${{ env.APP_VERSION }}
+            ${{ env.IMAGE_NAME }}:${{ env.APP_VERSION }}
 
       - name: Esperar health check
         uses: nick-fields/retry@v3
