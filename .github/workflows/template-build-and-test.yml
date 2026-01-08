@@ -18,6 +18,14 @@ on:
         required: true
         type: string
         default: '17'
+      run-unit-tests:
+        description: 'Ejecutar pruebas unitarias'
+        type: boolean
+        default: true
+      run-sonar:
+        description: 'Ejecutar análisis de SonarCloud'
+        type: boolean
+        default: false   # Recomendado false por defecto (más rápido en builds diarios)
     secrets:
       SONAR_TOKEN:
         required: true
@@ -56,17 +64,22 @@ jobs:
           echo "Versión: $APP_VERSION | Repo: $COMPONENT"
 
       - name: Compilar y pruebas unitarias (con cobertura)
-        run: mvn -B clean verify
-
-      - name: Mostrar cobertura JaCoCo (desde XML)
         run: |
-          echo "=== Resumen Cobertura JaCoCo ==="
-          if [ -f target/site/jacoco/jacoco.xml ]; then
-            grep 'line rate' target/site/jacoco/jacoco.xml | \
-            awk -F'"' '{printf "Cobertura de líneas: %.2f%%\n", $4 * 100}'
+          if ${{ inputs.run-unit-tests }}; then
+            mvn -B clean verify
           else
-            echo "No se encontró jacoco.xml"
+            mvn -B clean package -DskipTests
           fi
+
+#      - name: Mostrar cobertura JaCoCo (desde XML)
+#        run: |
+#          echo "=== Resumen Cobertura JaCoCo ==="
+#          if [ -f target/site/jacoco/jacoco.xml ]; then
+#            grep 'line rate' target/site/jacoco/jacoco.xml | \
+#            awk -F'"' '{printf "Cobertura de líneas: %.2f%%\n", $4 * 100}'
+#          else
+#            echo "No se encontró jacoco.xml"
+#          fi
 
   analyze-sonar:
     needs: build-and-test
@@ -79,6 +92,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build and analyze with SonarCloud
+        if: inputs.run-sonar == true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
