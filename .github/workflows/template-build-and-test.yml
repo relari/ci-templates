@@ -65,7 +65,7 @@ jobs:
 
       - name: Compilar y pruebas unitarias (con cobertura)
         run: |
-          if ${{ inputs.run-unit-tests }}; then
+          if ${{ inputs.run-unit-tests }} then
             mvn -B clean verify
           else
             mvn -B clean package -DskipTests
